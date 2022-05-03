@@ -8,4 +8,6 @@ For the project I use VS Code with PlatformIO because it´s just way more conven
 I know the Code probably isn´t perfect because I´m still in the learning, but so far it works good enough.
 Feel free to further improve my code :)
 
+
+
 *In order to make things work you need to add a "credentials.h" file with your credentials to the src folder 
