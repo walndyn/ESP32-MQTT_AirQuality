@@ -10,19 +10,14 @@
 #include "credentials.h"
 
 // ---define section---
-#define debug false         // Enable/Disable Debug functionality (serial output)
+#define debug true          // Enable/Disable Debug functionality (serial output)
 #define DHTPIN 26           // Digital pin connected to the DHT sensor
 #define DHTTYPE DHT22       // DHT22 or DHT11
 #define DHTreadouttime 2    // DHT Sensor readout time in seconds
 #define SGP30readouttime 2  // SGP30 Sensor readout time in seconds
 #define publish_interval 60 // Publish readings to MQTT time in seconds
-#define tempAdjust 1.5      // Adjusts the DHT sensors temperature values negativly => 1 = temp - 1C°
-#define humidityAdjust 3    // Adjusts the DHT sensors humidity values negativly => 1 = humidity - 1%
-#define doorMargin 60       // Hysterisis margine for door status algorithm
-#define doorTreshold 700    // Door status treshold (0-4096 ADC)
-#define lightbarrierPin 35  // ADC Pin connected to the light barrier
-#define triggerPin 33       // Pin connected to PIR
-#define PirDelay 5000       // Default PIR delay time before next trigger
+#define tempAdjust 0        // Adjusts the DHT sensors temperature values negativly => 1 = temp - 1C°
+#define humidityAdjust 0    // Adjusts the DHT sensors humidity values negativly => 1 = humidity - 1%
 
 // ---create variables---
 unsigned long previousMillis = 0;
@@ -61,43 +56,28 @@ EspMQTTClient client(
 
 );
 
-// ---PIR interrupt function---
-void IRAM_ATTR ISR()
-{
-  portENTER_CRITICAL_ISR(&mux);
-  if (triggerCnt == 1)
-  {
-    intTrigger = true;
-    previousMillis4 = millis();
-  }
-
-  triggerCnt++;
-  portEXIT_CRITICAL_ISR(&mux);
-}
-
 // WARNING : YOU MUST IMPLEMENT IT IF YOU USE EspMQTTClient
 void onConnectionEstablished()
 {
   if (debug == true)
     (Serial.println("going online..."));
   // ---Subscribe to MQTT topics---
-  client.subscribe("bedroom/espbed/CO2", [](const String &payload) {});
-  client.subscribe("bedroom/espbed/TVOC", [](const String &payload) {});
-  client.subscribe("bedroom/espbed/temperature", [](const String &payload) {});
-  client.subscribe("bedroom/espbed/humidity", [](const String &payload) {});
-  client.subscribe("bedroom/espbed/baselineCO2", [](const String &payload) {});
-  client.subscribe("bedroom/espbed/baselineTVOC", [](const String &payload) {});
-  client.subscribe("bedroom/espbed/battery", [](const String &payload) {});
-  client.subscribe("bedroom/espbed/door", [](const String &payload) {});
+  client.subscribe("bedroom/espdesk/CO2", [](const String &payload) {});
+  client.subscribe("bedroom/espdesk/TVOC", [](const String &payload) {});
+  client.subscribe("bedroom/espdesk/temperature", [](const String &payload) {});
+  client.subscribe("bedroom/espdesk/humidity", [](const String &payload) {});
+  client.subscribe("bedroom/espdesk/baselineCO2", [](const String &payload) {});
+  client.subscribe("bedroom/espdesk/baselineTVOC", [](const String &payload) {});
+  client.subscribe("bedroom/espdesk/battery", [](const String &payload) {});
 
   /* Subscribe to "mytopic/wildcardtest/#" and display received message to Serial
   client.subscribe("mytopic/wildcardtest/#", [](const String & topic, const String & payload) {
     if(debug == true)(Serial.println("(From wildcard) topic: " + topic + ", payload: " + payload));
   });*/
 
-  client.publish("bedroom/espbed", "ESP32-Bed/Air is online"); // Publish a message, you can activate the retain flag by setting the third parameter to true
+  client.publish("bedroom/espdesk", "ESP32-Desk/Air is online"); // Publish a message, you can activate the retain flag by setting the third parameter to true
   if (debug == true)
-    (Serial.println("ESP32-Bed is online"));
+    (Serial.println("ESP32-Desk is online"));
 }
 
 // ---Convert relative humidity to absolute for SGP30 humidity correction---
@@ -118,48 +98,6 @@ uint16_t doubleToFixedPoint(double number)
   return value;
 }
 
-// ---check the door status an publish if changed + hysterisis control---
-void doorStatus()
-{
-  String lastDoor = door;
-  doorValue = analogRead(lightbarrierPin);
-
-  if (doorValue <= (doorTreshold - doorMargin))
-  {
-    door = "opened";
-  }
-  else if (doorValue >= (doorTreshold + doorMargin))
-  {
-    door = "closed";
-  }
-
-  if (lastDoor != door)
-  {
-    if (debug == true)
-      (Serial.println(""));
-    client.publish("bedroom/espbed/door", String(door));
-    if (debug == true)
-    {
-      Serial.print("door: ");
-      Serial.println(door);
-    }
-  }
-}
-
-// ---check if PIR triggered interrupt and publish---
-void PIR()
-{
-  if (intTrigger == true)
-  {
-    client.publish("bedroom/espbed/door", "triggered");
-    if (debug == true)
-      (Serial.println("triggered"));
-    portENTER_CRITICAL(&mux);
-    intTrigger = false;
-    portEXIT_CRITICAL(&mux);
-  }
-}
-
 void setup()
 {
   if (debug == true)
@@ -170,7 +108,7 @@ void setup()
   // client.enableDebuggingMessages(); // Enable debugging messages sent to serial output
   client.enableHTTPWebUpdater(username, webPassword); // Enable the web updater. User and password default to values of MQTTUsername and MQTTPassword. These can be overridded with enableHTTPWebUpdater("user", "password").
   client.enableOTA();                                 // Enable OTA (Over The Air) updates. Password defaults to MQTTPassword. Port is the default OTA port. Can be overridden with enableOTA("password", port).
-  // client.enableLastWillMessage("bedroom/espbed", "I am going offline");  // You can activate the retain flag by setting the third parameter to true
+  // client.enableLastWillMessage("bedroom/espdesk", "I am going offline");  // You can activate the retain flag by setting the third parameter to true
 
   // ---initializes DHT sensor----
   dht.begin();
@@ -193,10 +131,6 @@ void setup()
 
   sgp30.initAirQuality(); // measureAirQuality should be called in one second increments after a call to initAirQuality
 
-  pinMode(lightbarrierPin, INPUT_PULLDOWN);
-  pinMode(triggerPin, INPUT_PULLDOWN);
-  attachInterrupt(33, ISR, RISING);
-
   if (debug == true)
     (Serial.println("setting up done!"));
 }
@@ -204,12 +138,6 @@ void setup()
 void loop()
 {
   client.loop();
-
-  // ---check the door status---
-  doorStatus();
-
-  // ---check PIR status---
-  PIR();
 
   // ---timer for DHT readout---
   unsigned long currentMillis = millis();
@@ -260,13 +188,13 @@ void loop()
 
     sgp30.getBaseline();
 
-    client.publish("bedroom/espbed/temperature", t);
-    client.publish("bedroom/espbed/humidity", h);
-    client.publish("bedroom/espbed/CO2", co2);
-    client.publish("bedroom/espbed/TVOC", tvoc);
-    client.publish("bedroom/espbed/BaselineCO2", String(sgp30.baselineCO2));
-    client.publish("bedroom/espbed/BaselineTVOC", String(sgp30.baselineTVOC));
-    client.publish("bedroom/espbed/battery", String(analogRead(34) / (4096 / 3.3) * 2));
+    client.publish("bedroom/espdesk/temperature", t);
+    client.publish("bedroom/espdesk/humidity", h);
+    client.publish("bedroom/espdesk/CO2", co2);
+    client.publish("bedroom/espdesk/TVOC", tvoc);
+    client.publish("bedroom/espdesk/BaselineCO2", String(sgp30.baselineCO2));
+    client.publish("bedroom/espdesk/BaselineTVOC", String(sgp30.baselineTVOC));
+    client.publish("bedroom/espdesk/battery", String(analogRead(34) / (4096 / 3.3) * 2));
 
     if (debug == true)
     {
@@ -290,13 +218,3 @@ void loop()
     co2Vector.clear();
     tvocVector.clear();
   }
-
-  // ---timer for resetting PIR status---
-  unsigned long currentMillis4 = millis();
-  if ((currentMillis4 - previousMillis4) > PirDelay)
-  {
-    portENTER_CRITICAL(&mux);
-    triggerCnt = 1;
-    portEXIT_CRITICAL(&mux);
-  }
-}
