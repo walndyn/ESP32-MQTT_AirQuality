@@ -11,7 +11,7 @@
 
 // ---define section---
 #define debug true          // Enable/Disable Debug functionality (serial output)
-#define DHTPIN 26           // Digital pin connected to the DHT sensor
+#define DHTPIN 4            // Digital pin connected to the DHT sensor
 #define DHTTYPE DHT22       // DHT22 or DHT11
 #define DHTreadouttime 2    // DHT Sensor readout time in seconds
 #define SGP30readouttime 2  // SGP30 Sensor readout time in seconds
@@ -218,3 +218,4 @@ void loop()
     co2Vector.clear();
     tvocVector.clear();
   }
+}
